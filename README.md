@@ -18,6 +18,8 @@
 | 文档 | [`nccl_ib_p2p_multi_gpu_training.md`](nccl_ib_p2p_multi_gpu_training.md) | NCCL `IB_DISABLE` / `P2P_DISABLE` 说明 |
 | 文档 | [`wandb_install_notes.md`](wandb_install_notes.md) | 集群上安装与登录 wandb 的注意事项 |
 
+**检查点自动清理**：本目录已包含 `prune_checkpoints.py` 与 `submit_prune_checkpoints_mysrun.sh`，并给出共享盘路径用法示例，详见 **[检查点自动清理](#检查点自动清理)**。
+
 ---
 
 ## 数据挂载模版：`cfs` / `s3mount` / `none`
@@ -56,6 +58,13 @@
 
 - 模版通过 **`S3MOUNT_LIB`** 指向业务仓库中的库脚本，默认 **`${REPO_ROOT}/src/s3mount_for_training.sh`**（VideoRAE）。
 - 需自备 **`S3MOUNT_CFG`**、凭证、本地 NVMe 与 FUSE；详见该库内注释及本目录 [`s3mount_compute_example.sh`](s3mount_compute_example.sh)。
+
+### 并发挂载与多作业（重要）
+
+- **不同计算节点**：各节点自有 **`/nvme/$USER`**、挂载点与缓存目录；对象存储支持多客户端并发读，**一般不会**因「另一台也挂了 s3mount」而导致本机读不到文件（至多共享带宽、略慢）。
+- **同一节点、两份作业共用同一套 `s3mount.cfg`（相同的 `S3_MOUNT_PATH` / `S3_CACHE_PATH`）**：VideoRAE 的 `s3mount_for_training.sh` 在 **`start_s3mount_for_training` 开头会调用 `cleanup_s3mount_training`**，对已有挂载点执行 **`fusermount -u`**。后启动的作业可能 **卸掉先启动作业已挂好的点**，导致先跑的进程出现 **I/O 错误、ENOENT、传输中断** 等；若两个进程争用 **同一 `S3_CACHE_PATH`**，还可能出现缓存/锁异常（依具体 s3mount 实现而定）。
+- **规避**：同一节点需要并行跑两个任务时，为第二个任务准备 **另一份配置**（或导出不同环境变量），使用 **不同的 `S3_MOUNT_PATH` 与 `S3_CACHE_PATH`**；只读评测可设 **`S3_MOUNT_READ_ONLY=1`**。不要将「会 cleanup 同一路径」的两套脚本无协调地叠在同一节点上。
+- **CFS**：多作业若共用 **`cfsctl stop` / `start` 与同一 `CFS_MAIN_SERVER` 分区**，也可能互相打断挂载；多机训练按集群文档协调 **main server** 与 **节点数**，避免无关作业混用同一 CFS 会话。
 
 ### 数据桥接（与训练脚本约定一致）
 
@@ -118,6 +127,79 @@
 - **作用**：下载指定 **commit / version** 的 Cursor CLI 与 `vscode-reh-linux-x64`，解压到 **`~/.cursor-server`**，供远程 SSH 开发使用。
 - **注意**：脚本内 **版本号与 commit** 需与你的 Cursor 客户端匹配；路径与下载 URL 见文件头部注释。
 - **适用**：在集群 home 下安装/更新 Cursor Server。
+
+---
+
+## 检查点自动清理
+
+本目录已包含以下两个文件（推荐优先使用本目录版本）；同时保留共享盘路径示例，便于在既有任务中直接复用。
+
+| 文件 | 说明 |
+|------|------|
+| `prune_checkpoints.py` | 按目录统计 `.pt` / `.ckpt`（可改后缀），超过上限则按 **修改时间（mtime）** 删除最旧的；支持多目录、定时循环。 |
+| `submit_prune_checkpoints_mysrun.sh` | 在计算节点上调用上述 Python；**内部不写 `mysrun`**，在登录节点用 **`mysrun … bash 本脚本`** 提交。 |
+
+### `prune_checkpoints.py` 行为摘要
+
+- **多目录**：`DIR` 可写多个；**`--max N` 对每个目录分别计数**，不是全局共用一个上限。
+- **默认扫描范围**：只统计各目录**直接子文件**；需要含子目录时用 **`-r` / `--recursive`**。
+- **删除策略**：默认若某目录内检查点个数 **> N**，则**从最旧删起，直到 ≤ N**；若希望每次只删一个最旧的（适合配合 cron），加 **`--once`**。
+- **后缀**：默认 `--ext .pt,.ckpt`，可改为逗号分隔列表。
+
+常用参数一览：
+
+| 参数 | 含义 |
+|------|------|
+| `DIR …` | 一个或多个检查点目录（必填） |
+| `--max N` | 每目录最多保留 N 个匹配文件（必填） |
+| `--ext` | 后缀列表，默认 `.pt,.ckpt` |
+| `-r` | 递归子目录 |
+| `--once` | 超限时只删 1 个最旧文件 |
+| `--dry-run` | 只打印将删除的文件 |
+| `--interval SEC` | 每 SEC 秒执行一整轮扫描；不设则**只跑一轮**后退出（定时模式需 **Ctrl+C** 或进程被 kill 才结束） |
+
+命令示例：
+
+```bash
+# 多目录，每目录最多保留 5 个
+python3 /mnt/petrelfs/wangxuanxu/tricks-for-cluster/prune_checkpoints.py /path/a /path/b --max 5
+
+# 先看会删谁
+python3 /mnt/petrelfs/wangxuanxu/tricks-for-cluster/prune_checkpoints.py /path/ckpts --max 5 --dry-run
+
+# 每 300 秒扫一轮（前台常驻）
+python3 /mnt/petrelfs/wangxuanxu/tricks-for-cluster/prune_checkpoints.py /path/ckpts --max 5 --interval 300
+```
+
+不依赖定时模式时，也可用系统 **cron** 周期性调用「无 `--interval`」的一次性命令。
+
+### `submit_prune_checkpoints_mysrun.sh` 与 `mysrun`
+
+1. **编辑脚本内「配置区」**：`PRUNE_SCRIPT`、`CKPT_DIRS`、`MAX_KEEP`、**`RECURSIVE`**（`1` 时传 `-r` 递归子目录，默认 `1`；只要扫各目录顶层则设为 `0`）、可选 `INTERVAL_SEC`（空字符串表示只跑一轮）、`EXTRA_PY_ARGS` 等。
+2. **`mysrun` 在登录节点执行**；包装脚本里**不要**再嵌套 `mysrun`。
+3. 脚本开头若有 **「无 `SLURM_JOB_ID` 则 `exit 0`」**（与 [`slurm_only.sh`](slurm_only.sh) 同类）：在**登录节点直接 `bash` 本脚本会静默退出**，属预期；**仅在已分配的作业环境里**才会真正跑清理逻辑。
+4. 计算节点常见 **bash 4.2** 且脚本使用 **`set -u`** 时，对**空数组**做 `"${arr[@]}"` 可能触发 **`unbound variable`**；当前包装脚本已用「仅当数组非空再 `cmd+=`」方式规避；若自行改写，注意同样问题。
+5. 若队列不接受 **`--gres=gpu:0`**，提交时把 **`-g 0` 改为 `-g 1`**。
+
+提交示例（`mysrun` 一般在 `~/.bashrc` 里定义，常用 **`bash -l -c '…'`**）：
+
+```bash
+# 异步（-a），尽快返回
+bash -l -c 'mysrun -g 0 -c 2 -j prune-ckpt -a bash /mnt/petrelfs/wangxuanxu/tricks-for-cluster/submit_prune_checkpoints_mysrun.sh'
+
+# 同步跟输出（去掉 -a）
+bash -l -c 'mysrun -g 0 -c 2 -j prune-ckpt bash /mnt/petrelfs/wangxuanxu/tricks-for-cluster/submit_prune_checkpoints_mysrun.sh'
+```
+
+也可在提交前导出环境变量覆盖脚本默认值，例如只跑一轮、或关闭递归：
+
+```bash
+bash -l -c 'INTERVAL_SEC= mysrun -g 0 -c 4 -j prune-ckpt -a bash /mnt/petrelfs/wangxuanxu/tricks-for-cluster/submit_prune_checkpoints_mysrun.sh'
+
+bash -l -c 'RECURSIVE=0 mysrun -g 0 -c 4 -j prune-ckpt -a bash /mnt/petrelfs/wangxuanxu/tricks-for-cluster/submit_prune_checkpoints_mysrun.sh'
+```
+
+**说明**：使用 **`--interval`** 时作业会长时间占用分配的资源，需满足集群 **`srun`/分区默认时长** 等策略；长期轻量清理也可考虑 **cron + 无 interval 的单次调用**。
 
 ---
 
