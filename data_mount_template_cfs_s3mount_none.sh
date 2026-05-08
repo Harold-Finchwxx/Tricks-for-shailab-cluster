@@ -18,6 +18,8 @@
 #   TRAIN_DATA_MOUNT   显式指定：cfs | s3mount | none（优先级最高）
 #   CFS_USE            兼容老脚本：1 -> cfs，0 -> none，未设且 TRAIN_DATA_MOUNT 空 -> s3mount
 #   CFS_* / S3MOUNT_*  见下文各节
+#   FAST_MOUNT_CHECK   1=轻量检查挂载目录存在（默认）；0=执行 ls 可读性检查
+#   SKIP_FULL_FILE_CHECK 1=跳过数据集逐文件全量检查（建议大规模评测时开启）
 # =============================================================================
 
 # -----------------------------------------------------------------------------
@@ -59,6 +61,9 @@ export CFS_MAIN_SERVER="${CFS_MAIN_SERVER:-$(scontrol show hostnames "${SLURM_JO
 
 # OpenVid 布局：视频通常在 bucket 下 videos/；若 CFS 整桶挂在 openvid，则子目录常为 videos
 TRAIN_OPENVID_VIDEOS_SUBDIR="${TRAIN_OPENVID_VIDEOS_SUBDIR:-videos}"
+FAST_MOUNT_CHECK="${FAST_MOUNT_CHECK:-1}"
+# 与 VideoRAE datasets/video_dataset.py 约定：跳过逐文件全量可读性检查，减少启动耗时
+export SKIP_FULL_FILE_CHECK="${SKIP_FULL_FILE_CHECK:-1}"
 
 # =============================================================================
 # 3. 解析 TRAIN_DATA_MOUNT：显式优先，否则用 CFS_USE 映射，再默认 s3mount
@@ -110,6 +115,18 @@ stop_cfs() {
 # -----------------------------------------------------------------------------
 # 默认指向 VideoRAE 内实现；其它项目请设置 S3MOUNT_LIB 或改 REPO_ROOT。
 # 该库依赖：S3MOUNT_CFG（如 ~/s3mount.cfg）、本地 NVMe、FUSE、凭证等。
+# 推荐与 VideoRAE 对齐的开关（由库脚本消费）：
+#   S3_REUSE_EXISTING_MOUNT=1       已挂载且可读时复用，跳过卸载重挂（默认开启）
+#   S3MOUNT_DISABLE_CLEANUP=1       可选择关闭 [s3mount][cleanup]
+#   S3_SUPPRESS_NONEMPTY_CACHE_WARN=1  隐藏“缓存目录非空”告警
+#
+# --- 并发挂载提醒（与 VideoRAE src/s3mount_for_training.sh 行为一致）---
+# - 不同节点：各自 /nvme 与挂载点独立；多机同时读同一桶通常无逻辑冲突（至多争用带宽）。
+# - 同一节点、两作业共用同一 S3_MOUNT_PATH / S3_CACHE_PATH（同一份 cfg）：
+#     start 前会 cleanup（fusermount -u）该挂载点，后起的作业可能卸掉先起作业的挂载，
+#     导致先跑任务 I/O 失败、ENOENT 等。并行时请为每作业使用不同的挂载点与缓存目录。
+# - CFS：多作业若对同一分区反复 cfsctl stop/start，也可能互相影响；按集群规范协调。
+# ---------------------------------------------------------------------------
 # =============================================================================
 S3MOUNT_LIB="${S3MOUNT_LIB:-${REPO_ROOT}/src/s3mount_for_training.sh}"
 if [ "${TRAIN_DATA_MOUNT}" = "s3mount" ]; then
@@ -139,8 +156,8 @@ if [ "${TRAIN_DATA_MOUNT}" = "cfs" ]; then
 elif [ "${TRAIN_DATA_MOUNT}" = "s3mount" ]; then
   start_s3mount_for_training
   _MOUNT_VIDEOS_BASE="${S3_MOUNT_PATH}"
-  # 若 s3mount 使用 prefix=videos/，则「逻辑子目录」应为 . 而不是 videos（与训练脚本对齐）
-  if [ "${TRAIN_OPENVID_VIDEOS_SUBDIR:-videos}" = "videos" ]; then
+  # 若 s3mount 使用 prefix=videos/，通常应将逻辑子目录改为 .（可用 S3_OPENVID_NO_FLATTEN=1 关闭）
+  if [ "${S3_OPENVID_NO_FLATTEN:-0}" != "1" ] && [ "${TRAIN_OPENVID_VIDEOS_SUBDIR:-videos}" = "videos" ]; then
     case "${S3_PREFIX:-}" in
       videos/|*/videos/)
         TRAIN_OPENVID_VIDEOS_SUBDIR="."
@@ -154,12 +171,41 @@ if [ "${TRAIN_DATA_MOUNT}" = "cfs" ] || [ "${TRAIN_DATA_MOUNT}" = "s3mount" ]; t
   LOCAL_DATA_ROOT="/nvme/${USER}/videorae_data_root"
   mkdir -p "${LOCAL_DATA_ROOT}/openvid"
   _OPENVID_VID_SRC="${_MOUNT_VIDEOS_BASE}/${TRAIN_OPENVID_VIDEOS_SUBDIR}"
+  if [ "${TRAIN_DATA_MOUNT}" = "s3mount" ]; then
+    _s3_need_fallback=0
+    if [ ! -d "${_OPENVID_VID_SRC}" ] || [ -z "$(ls -A "${_OPENVID_VID_SRC}" 2>/dev/null)" ]; then
+      _s3_need_fallback=1
+    fi
+    if [ "${_s3_need_fallback}" = "1" ] && [ "${TRAIN_OPENVID_VIDEOS_SUBDIR}" != "." ]; then
+      case "${S3_PREFIX:-}" in
+        videos/|*/videos/)
+          echo "[s3mount] S3_PREFIX=${S3_PREFIX}：${_OPENVID_VID_SRC} 不可用或为空，改用挂载根 -> ${_MOUNT_VIDEOS_BASE}"
+          TRAIN_OPENVID_VIDEOS_SUBDIR="."
+          _OPENVID_VID_SRC="${_MOUNT_VIDEOS_BASE}"
+          ;;
+      esac
+    fi
+    if [ ! -d "${_OPENVID_VID_SRC}" ] || [ -z "$(ls -A "${_OPENVID_VID_SRC}" 2>/dev/null)" ]; then
+      if [ -d "${_MOUNT_VIDEOS_BASE}" ] && [ -n "$(ls -A "${_MOUNT_VIDEOS_BASE}" 2>/dev/null)" ]; then
+        echo "[s3mount] 子目录不可用，回退到挂载根: ${_MOUNT_VIDEOS_BASE}"
+        TRAIN_OPENVID_VIDEOS_SUBDIR="."
+        _OPENVID_VID_SRC="${_MOUNT_VIDEOS_BASE}"
+      fi
+    fi
+  fi
   ln -sfn "${_OPENVID_VID_SRC}" "${LOCAL_DATA_ROOT}/openvid/videos"
   DATA_ROOT="${LOCAL_DATA_ROOT}"
-  if ! ls "${_OPENVID_VID_SRC}" >/dev/null 2>&1; then
-    echo "[FATAL] OpenVid 视频路径不可读: ${_OPENVID_VID_SRC}"
-    ls -la "${_MOUNT_VIDEOS_BASE}" 2>&1 | head -n 30 || true
-    exit 1
+  if [ "${FAST_MOUNT_CHECK}" = "1" ]; then
+    if [ ! -d "${_OPENVID_VID_SRC}" ]; then
+      echo "[FATAL] OpenVid 视频路径不存在: ${_OPENVID_VID_SRC}"
+      exit 1
+    fi
+  else
+    if ! ls "${_OPENVID_VID_SRC}" >/dev/null 2>&1; then
+      echo "[FATAL] OpenVid 视频路径不可读: ${_OPENVID_VID_SRC}"
+      ls -la "${_MOUNT_VIDEOS_BASE}" 2>&1 | head -n 30 || true
+      exit 1
+    fi
   fi
   echo "[${TRAIN_DATA_MOUNT}] DATA_ROOT remapped to ${DATA_ROOT}; openvid/videos -> ${_OPENVID_VID_SRC}"
 else

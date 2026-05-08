@@ -31,8 +31,8 @@ get_gpu_usage() {
 }
 
 # Check GPU usage for both partitions and job types
-get_gpu_usage "eb3d_t" "reserved"
+get_gpu_usage "wam_model" "reserved"
 echo
-get_gpu_usage "eb3d_t" "spot"
+get_gpu_usage "wam_model" "spot"
 echo
 

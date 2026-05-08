@@ -59,6 +59,21 @@ export NCCL_P2P_DISABLE=0
 # export GLOO_SOCKET_IFNAME=ib0
 ```
 
+### 1.1) 本集群管理员建议（多节点）
+
+管理员明确建议在多机训练中设置：
+
+```bash
+export NCCL_SOCKET_IFNAME=bond0
+export NCCL_IB_HCA=mlx5_2,mlx5_3,mlx5_4,mlx5_5
+```
+
+说明：
+
+- `NCCL_SOCKET_IFNAME=bond0`：指定 NCCL 使用 `bond0` 网卡进行 socket 路径通信；
+- `NCCL_IB_HCA=mlx5_2,mlx5_3,mlx5_4,mlx5_5`：限制 NCCL 在这些 HCA 上建立 RDMA 通信通道；
+- 若后续集群网络命名或可用 HCA 发生变化，应以管理员最新通知为准。
+
 ### 2) 在训练 shell 脚本内默认导出（可被外部环境覆盖）
 
 RPiAE 三阶段脚本中采用：
@@ -110,6 +125,7 @@ export NCCL_P2P_DISABLE=1   # 仅当 P2P 导致错误时（较少见）
 ## 相关环境变量（多机/复杂网络时）
 
 - **`NCCL_SOCKET_IFNAME` / `GLOO_SOCKET_IFNAME`**：指定本机用于 NCCL / Gloo（TCPStore）的网卡，需与 `MASTER_ADDR` 所在网段一致；多机作业常见必备项。
+- **`NCCL_IB_HCA`**：指定 NCCL 可使用的 IB/RDMA HCA 列表；本集群当前建议值为 `mlx5_2,mlx5_3,mlx5_4,mlx5_5`。
 - **`NCCL_DEBUG`**：默认 `WARN` 即可；深度排障再开到 `INFO`。
 
 详见 `VideoRAE/RPiAE_MIGRATION_PROJECT.md` 中多节点 Slurm 小节。

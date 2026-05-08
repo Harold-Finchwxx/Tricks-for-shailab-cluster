@@ -58,6 +58,13 @@
 
 - 模版通过 **`S3MOUNT_LIB`** 指向业务仓库中的库脚本，默认 **`${REPO_ROOT}/src/s3mount_for_training.sh`**（VideoRAE）。
 - 需自备 **`S3MOUNT_CFG`**、凭证、本地 NVMe 与 FUSE；详见该库内注释及本目录 [`s3mount_compute_example.sh`](s3mount_compute_example.sh)。
+- 建议与 VideoRAE 当前实现对齐的开关：
+  - `S3_REUSE_EXISTING_MOUNT=1`：挂载点已就绪且可读时直接复用，跳过“先 cleanup 再重挂”。
+  - `S3MOUNT_DISABLE_CLEANUP=1`：可选择关闭 `[s3mount][cleanup]`（适合你明确希望保留现有挂载时）。
+  - `S3_SUPPRESS_NONEMPTY_CACHE_WARN=1`：隐藏“缓存目录非空”告警。
+  - `S3_OPENVID_NO_FLATTEN=1`：保留 `TRAIN_OPENVID_VIDEOS_SUBDIR=videos`，不自动把 prefix=videos/ 扁平化到 `.`。
+
+### 挂载检查与启动加速
 
 ### 并发挂载与多作业（重要）
 
@@ -71,6 +78,11 @@
 在 **cfs / s3mount** 下，脚本会创建 `LOCAL_DATA_ROOT=/nvme/${USER}/videorae_data_root`，并将 `openvid/videos` **符号链接**到挂载点下的视频目录；Python 侧使用 **`DATA_ROOT="${LOCAL_DATA_ROOT}"`**。
 
 若 **`S3_PREFIX`** 为 `videos/` 等，可能将 **`TRAIN_OPENVID_VIDEOS_SUBDIR`** 设为 `.`，与训练脚本行为对齐。
+
+新增两项常用优化：
+
+- `FAST_MOUNT_CHECK=1`（默认）：仅检查目录存在，跳过 `ls` 全量可读性扫描；设 `0` 可恢复严格检查。
+- `SKIP_FULL_FILE_CHECK=1`（默认导出/评测推荐）：跳过数据集逐文件全量校验（由 `video_dataset.py` 消费），缩短启动时间。
 
 ### 使用方式
 
@@ -223,6 +235,7 @@ bash -l -c 'RECURSIVE=0 mysrun -g 0 -c 4 -j prune-ckpt -a bash /mnt/petrelfs/wan
 
 - `VideoRAE/src/s3mount_for_training.sh` —— s3mount 训练用库  
 - `VideoRAE/src/train_stage1_rpipae_3stage_vit.sh`、`eval_stage1_rpipae_3stage_vit.sh` —— 完整训练/评测入口  
+- `VideoRAE/src/export_paper_qualitative.sh` —— 纯导出场景（多视频一轮、可关闭 cleanup、快速挂载检查）
 
 将本仓库 **`data_mount_template_cfs_s3mount_none.sh`** 视为上述逻辑的 **可复用、带注释的抽离版** 即可。
 
