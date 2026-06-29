@@ -17,6 +17,11 @@
 | 编辑器 | [`cursor_install.sh`](cursor_install.sh) | 在集群侧安装 Cursor Server（远程开发） |
 | 文档 | [`nccl_ib_p2p_multi_gpu_training.md`](nccl_ib_p2p_multi_gpu_training.md) | NCCL `IB_DISABLE` / `P2P_DISABLE` 说明 |
 | 文档 | [`wandb_install_notes.md`](wandb_install_notes.md) | 集群上安装与登录 wandb 的注意事项 |
+| 文档 | [`openai_claude_proxy_notes.md`](openai_claude_proxy_notes.md) | T 集群 CloseAI 代理与 Codex / Claude CLI 配置 |
+| 文档 | [`codex_deepseek_setup.md`](codex_deepseek_setup.md) | Codex CLI 接入 DeepSeek（见下方统一文档） |
+| 文档 | [`codex_domestic_models_setup.md`](codex_domestic_models_setup.md) | Codex 接入国产模型（DeepSeek / Qwen / GLM / Kimi） |
+| 脚本 | [`start_domestic_proxies.sh`](start_domestic_proxies.sh) | 启动全部或指定国产模型 Responses 桥接 |
+| 配置 | [`domestic_models.conf`](domestic_models.conf) | 国产 provider 端口与 upstream 定义 |
 
 **检查点自动清理**：本目录已包含 `prune_checkpoints.py` 与 `submit_prune_checkpoints_mysrun.sh`，并给出共享盘路径用法示例，详见 **[检查点自动清理](#检查点自动清理)**。
 
@@ -226,6 +231,31 @@ bash -l -c 'RECURSIVE=0 mysrun -g 0 -c 4 -j prune-ckpt -a bash /mnt/petrelfs/wan
 
 - **内容**：集群上 **`pip install wandb`** 易触发源码构建失败的原因；推荐 **`WANDB_BUILD_SKIP_GPU_STATS`**、固定版本安装、**新版 86 位 API Key 需新版 wandb**；非交互作业用 **`WANDB_API_KEY`**。
 - **适用**：安装/升级 wandb、登录与离线同步问题。
+
+### `openai_claude_proxy_notes.md`
+
+- **内容**：T 集群 **CloseAI 专用代理**；**`codex` / `claude` 包装**；Node.js 与 CLI 安装；**Codex 默认简体中文回复**（`AGENTS.md`）；**SSH/Cursor 终端 IME 无法输入中文**（原因、自测、`codex-cn-ask`、粘贴、`disable_paste_burst`）及常见问题。
+- **适用**：在集群上使用 Codex CLI、Claude Code 访问 OpenAI / Anthropic API。
+
+### `codex_domestic_models_setup.md`
+
+- **内容**：Codex CLI 统一接入 **DeepSeek / Qwen / GLM / Kimi**；`domestic_models.conf`、多端口 Responses 桥接 + **8786 统一网关**、`~/.domestic_models_env`、快捷命令 **`codex-cn`**（TUI 内 `/model` 切换）；Coding Plan vs API 说明。
+- **适用**：在集群 Codex 中使用多家国产 coding API。
+
+### `codex_deepseek_setup.md`
+
+- **内容**：DeepSeek 专项说明（已并入 `codex_domestic_models_setup.md`，保留作 DeepSeek 快速参考）。
+- **适用**：仅使用 DeepSeek 时可查阅。
+
+### `codex_humanize_setup.md`
+
+- **内容**：**Humanize-Qoder** 安装（GitHub SSH、marketplace、skills/hooks）、`fix_humanize_codex_hooks.sh`、升级维护。
+- **适用**：首次安装与排障。
+
+### `codex_humanize_usage_zh.md`
+
+- **内容**：Humanize **中文使用说明**：RLCR 概念、典型工作流、TUI `/skills` 与 shell 命令、`gen-plan` / `refine-plan` / `rlcr` 参数、计划测验、监控、配置、`.humanize/` 目录、FAQ。
+- **适用**：日常用 Humanize 做计划驱动开发与 qoder review。
 
 ---
 
