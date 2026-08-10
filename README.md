@@ -257,8 +257,8 @@ bash -l -c 'RECURSIVE=0 mysrun -g 0 -c 4 -j prune-ckpt -a bash /mnt/petrelfs/wan
 
 ### `codex_humanize_usage_zh.md`
 
-- **内容**：Humanize **中文使用说明**：RLCR 概念、典型工作流、TUI `/skills` 与 shell 命令、`gen-plan` / `refine-plan` / `rlcr` 参数、计划测验、监控、配置、`.humanize/` 目录、FAQ。
-- **适用**：日常用 Humanize 做计划驱动开发与 qoder review。
+- **内容**：Humanize **中文使用说明**：RLCR 概念、典型工作流、TUI `/skills` 与 shell 命令、`gen-plan` / `refine-plan` / `rlcr` 参数、计划测验、**无人值守 / 全权限（7×24）**、监控、配置、`.humanize/` 目录、FAQ。
+- **适用**：日常用 Humanize 做计划驱动开发与 qoder review；挂机长跑前请先读 §4.5。
 
 ### `codex_qoder_auth_and_review_troubleshoot.md`
 

@@ -144,7 +144,9 @@ humanize-rlcr docs/plan.md
 | `humanize-cancel-rlcr-loop` | 取消循环 |
 | `ask-codex` | 一次性 qoder 咨询 |
 
-常用参数：`--yolo`（全自动）、`--skip-quiz`（跳过计划测验）、`--max N`（最大轮数）。
+常用参数：`--yolo`（流程全自动）、`--skip-quiz`（跳过计划测验）、`--max N`（最大轮数）。
+
+**7×24 无人值守**（避免 Codex/qoder 权限询问打断）：见 [codex_humanize_usage_zh.md](codex_humanize_usage_zh.md) **§4.5**（`--yolo` + Qoder bypass + Codex `approval_policy=never` / `sandbox_mode=danger-full-access`）。
 
 ---
 

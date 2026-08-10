@@ -14,7 +14,7 @@
 |------|------|
 | [codex_qoder_auth_and_review_troubleshoot.md](codex_qoder_auth_and_review_troubleshoot.md) | 登录 / 403 / 凭据 wipe 与审查成功判定 |
 | [codex_humanize_setup.md](codex_humanize_setup.md) | 安装与 hooks |
-| [codex_humanize_usage_zh.md](codex_humanize_usage_zh.md) | 日常用法、`--qoder-model`、effort=`max` |
+| [codex_humanize_usage_zh.md](codex_humanize_usage_zh.md) | 日常用法、`--qoder-model`、effort=`max`、**无人值守 / 全权限（§4.5）** |
 | `setup_qoderclicn_zh.sh` | qoder wrapper（HOME / 代理 / auth 回填） |
 
 **运行时修复落点（非本仓库）：** `~/.agents/skills/humanize/`  

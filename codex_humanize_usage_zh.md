@@ -232,7 +232,146 @@ humanize-rlcr --skip-impl --base-branch main   # 跳过实现，直接 code revi
 
 因此 **hooks 必须正确配置**（见 [codex_humanize_setup.md](codex_humanize_setup.md)）。
 
-### 4.5 `humanize-cancel-rlcr-loop`
+### 4.5 无人值守 / 全权限运行（7×24）
+
+目标：计划与目标定好后，让 Humanize **长时间自主迭代**，避免因 **Codex 命令审批**、**qoder 工具权限询问**、**计划测验 / Open Questions 等人机交互** 而中断。
+
+> **风险**：下面配置等于允许 agent 在仓库内几乎任意读写与执行命令。只在**可信仓库、隔离开发机**使用；不要对不可信代码或生产密钥目录开。
+
+#### 三层权限（缺一仍可能卡住）
+
+| 层 | 负责什么 | 无人值守怎么开 |
+|----|----------|----------------|
+| **A. Humanize 流程** | 计划测验、qoder Open Questions 是否问人 | `humanize-rlcr … --yolo` |
+| **B. Qoder 审查** | 无头 review 时 Read/Grep 等工具权限 | 默认已 bypass（见下） |
+| **C. Codex 实现** | shell / 写文件是否弹审批、沙箱是否拦网 | `approval_policy=never` + 宽松 sandbox |
+
+只开 `--yolo` **不够**：那只覆盖 A；本机默认 Codex 仍可能是「问用户审批」（`approvals_reviewer = "user"`），长跑时会卡在审批提示上。
+
+#### A. Humanize：`--yolo`
+
+```bash
+humanize-rlcr docs/plan.md --yolo
+# 等价于：--skip-quiz + --claude-answer-codex
+```
+
+效果：
+
+- 跳过「计划理解测验」
+- qoder 提出 Open Questions 时由 **Codex 自行继续**，不再等你在 TUI 回答
+
+可选参数（长跑常用）：
+
+```bash
+humanize-rlcr docs/plan.md --yolo --max 80
+humanize-rlcr docs/plan.md --yolo --privacy          # 跳过方法论分析阶段
+humanize-rlcr docs/plan.md --yolo --qoder-model deepseek/deepseek-v4-flash-pg:max
+```
+
+在 Codex TUI：`/skills` → `humanize-codex-qoder:humanize-rlcr`，参数里同样加上 `--yolo`。
+
+#### B. Qoder：默认已无询问
+
+Humanize 的 `ask-qoder.sh` 默认：
+
+```bash
+HUMANIZE_QODER_BYPASS_PERMISSIONS=1   # 默认
+# → qoderclicn --permission-mode bypass_permissions
+```
+
+一般**无需改**。若环境里被关掉，启动 Codex / RLCR 前：
+
+```bash
+export HUMANIZE_QODER_BYPASS_PERMISSIONS=1
+```
+
+T 集群出站（Authentik）仍建议保证代理可用（见上文「集群相关环境变量」）；审查失败优先查 [codex_qoder_auth_and_review_troubleshoot.md](codex_qoder_auth_and_review_troubleshoot.md)，那不是权限弹窗问题。
+
+#### C. Codex：无审批 + 宽松沙箱
+
+**本机推荐默认**（已可写入 `~/.codex/config.toml`）：
+
+```toml
+# 无人值守：不向用户索取命令审批；沙箱放开（危险）
+approval_policy = "never"
+sandbox_mode = "danger-full-access"
+```
+
+含义简表：
+
+| 配置 / 启动参数 | 作用 |
+|-----------------|------|
+| `approval_policy = "never"` 或 `-a never` | 永不向用户要审批；失败回给模型重试 |
+| `sandbox_mode = "danger-full-access"` 或 `-s danger-full-access` | 几乎不限制命令执行环境 |
+| `--dangerously-bypass-approvals-and-sandbox` | 一次性跳过审批**与**沙箱（更激进；仅隔离环境） |
+| `--approve-for-me` | 自动审批准入（仍偏交互/半自动，不适合纯 7×24） |
+
+**单次会话覆盖**（不想改全局默认时）：
+
+```bash
+codex --ask-for-approval never --sandbox danger-full-access
+codex-cn --ask-for-approval never --sandbox danger-full-access
+```
+
+**临时恢复「要问人」**（同一机器做交互调试时）：
+
+```bash
+codex --ask-for-approval on-request --sandbox workspace-write
+```
+
+并确认：
+
+1. 项目目录在 `~/.codex/config.toml` 的 `[projects."…"]` 中为 `trust_level = "trusted"`（陌生目录会先问信任）。
+2. `[features] hooks = true`，且 `~/.codex/hooks.json` 的 Stop hook 已信任并启用（否则 RLCR 不会自动进入下一轮 review）。
+
+#### 推荐 7×24 启动流程
+
+```bash
+# 0. 代理 / 登录（按你用的实现端）
+# GPT: 直接 codex（包装会 openai_on）
+# 国产: domestic_proxy_on 或 codex-cn
+
+# 1. 用 tmux 防止 SSH 断开带走会话
+tmux new -s humanize
+cd /path/to/your/repo
+
+# 2. 启动无人值守 Codex（若已写进 config.toml，可省略长参数）
+codex --ask-for-approval never --sandbox danger-full-access
+# 或: codex-cn --ask-for-approval never --sandbox danger-full-access
+
+# 3. 在 TUI 中启动 RLCR（计划已审阅）
+# /skills → humanize-rlcr
+# 参数示例：
+#   docs/plan.md --yolo --max 80
+```
+
+另开一个终端看进度（见「五、监控进度」），例如：
+
+```bash
+# 按你安装的 humanize 监控入口；或直接看状态文件
+ls -lt .humanize/rlcr/*/
+```
+
+取消循环：在 Codex 里跑 `humanize-cancel-rlcr-loop`，或 TUI 选同名技能。
+
+#### 仍可能中断的原因（不是权限弹窗）
+
+| 原因 | 处理 |
+|------|------|
+| qoder `Not logged in` / 403 / auth 被 wipe | [codex_qoder_auth_and_review_troubleshoot.md](codex_qoder_auth_and_review_troubleshoot.md) |
+| API 额度 / 模型不可用 | 换 profile 或 `--qoder-model` / Codex `/model` |
+| tmux / 开发机被回收 | 用持久镜像 + tmux；必要时 `tmux attach -t humanize` |
+| hooks 未生效 | `fix_humanize_codex_hooks.sh` 后**新开** Codex 会话 |
+| `--max` 轮数用尽 | 加大 `--max` 或根据 review 结果改 plan 再开一轮 |
+
+#### 快速对照：交互 vs 无人值守
+
+| 场景 | Humanize | Codex | Qoder |
+|------|----------|-------|-------|
+| 日常一起看 | `humanize-rlcr plan.md` | 默认 / `on-request` | 默认 bypass |
+| 定好 plan 后挂机 | `… --yolo` | `never` + `danger-full-access` | 保持默认 bypass |
+
+### 4.6 `humanize-cancel-rlcr-loop`
 
 ```bash
 humanize-cancel-rlcr-loop
@@ -240,7 +379,7 @@ humanize-cancel-rlcr-loop
 
 或在 TUI 选 `humanize-codex-qoder:humanize-cancel-rlcr-loop`。
 
-### 4.6 `ask-codex`
+### 4.7 `ask-codex`
 
 一次性 qoder 咨询，**不进入 RLCR**。
 
@@ -401,7 +540,8 @@ export QODERCLICN_APPEND_SYSTEM_PROMPT="你的系统提示"
 | `/skills` 里看不到 Humanize | `codex plugin list` 确认已安装；**新开会话** |
 | RLCR 一轮就停、无 review | 检查 `~/.codex/hooks.json` 与 `[features] hooks = true`；跑 `fix_humanize_codex_hooks.sh` |
 | qoder review 超时 / 失败 | 确认 `qoderclicn` 已登录；看 `.humanize/` 下日志。反复 `Not logged in`、恢复后又被清空：见 [codex_qoder_auth_and_review_troubleshoot.md](codex_qoder_auth_and_review_troubleshoot.md) |
-| plan 测验看不懂 | 先读 plan 再跑；或 `--skip-quiz` |
+| plan 测验看不懂 | 先读 plan 再跑；或 `--skip-quiz` / `--yolo` |
+| 长跑被 Codex 审批弹窗打断 | 用 `approval_policy=never` + 宽松 sandbox，见 **4.5 无人值守**；启动加 `--yolo` |
 | 想跳过方法论分析 | `humanize-rlcr plan.md --privacy` |
 | 方法论阶段要求 Opus / 模型不可用 | Codex+qoder 版已改为使用当前会话可用的 Codex 模型，不再硬编码 Claude Opus；升级/同步 `~/.agents/skills/humanize` 后生效 |
 | 插件升级后 hooks 又报错 | 升级 → `install-skills-codex.sh` → `fix_humanize_codex_hooks.sh` |
