@@ -292,6 +292,28 @@ humanize monitor codex     # ask-codex / qoder 咨询
 | `agent_teams` | `false` | 默认是否开 Agent Teams |
 | `alternative_plan_language` | `""` | 如 `zh` 生成中文 plan 变体 |
 
+**不必手改 JSON 的指定方式（推荐）：**
+
+```bash
+# 仅本次 RLCR 会话（写入该次 state.md，Stop hook 会传给 qoder）
+humanize-rlcr plans/foo.md --qoder-model deepseek/deepseek-v4-flash-pg --qoder-effort high
+
+# 与 Qoder TUI 一致可用 max（比 xhigh 更高）
+humanize-rlcr plans/foo.md --qoder-model deepseek/deepseek-v4-flash-pg:max
+
+# 本次会话 + 写入项目 .humanize/config.json（以后本仓库默认用它）
+humanize-rlcr plans/foo.md --qoder-model deepseek/deepseek-v4-flash-pg --persist-qoder-config
+
+# 不启动 RLCR，只改「本项目」默认 review 模型（也可热补丁当前 state.md）
+bash ~/.agents/skills/humanize/scripts/set-qoder-review-model.sh deepseek/deepseek-v4-flash-pg max
+```
+
+环境变量（启动 setup 时生效）：`HUMANIZE_QODER_REVIEW_MODEL`、`HUMANIZE_QODER_REVIEW_EFFORT`。
+
+qoder effort 合法值与 `qoderclicn --reasoning-effort` 对齐：`none|low|medium|high|xhigh|max`（TUI 里 DeepSeek 的 **max** 即此处 `max`，不是 Codex 的 `xhigh`）。
+
+优先级（review 模型）：**CLI `--qoder-model` > 环境变量 > 项目/用户 config > 插件默认**。
+
 **项目级覆盖**示例（`.humanize/config.json`）：
 
 ```json
@@ -314,6 +336,15 @@ Humanize 对 qoderclicn 子进程单独处理代理（见 `scripts/lib/qoder-cli
 | `HUMANIZE_QODER_PROXY_URL` | H 集群 headless 代理 URL |
 | `HUMANIZE_QODER_BYPASS_PERMISSIONS` | 默认 `1`；设为 `0` 关闭 qoder 无头模式的 bypass |
 
+**T 集群注意**：计算节点不能直连外网，访问 `gateway.qoder.com.cn` 需 **Authentik 代理**（`proxy_on`，即 `~/.bashrc` 中的 `PROXY_URL`）。交互式 `qoderclicn` 的 wrapper 会自动注入代理；若仍报 `Unable to connect`，先手动 `proxy_on` 再启动。
+
+Humanize 在 T 分区默认 `HUMANIZE_QODER_PROXY_MODE=auto` 会**清除**代理（为 H 集群设计）。在 T 集群跑 RLCR 时请设置：
+
+```bash
+export HUMANIZE_QODER_PROXY_MODE=always
+export HUMANIZE_QODER_PROXY_URL="$PROXY_URL"   # 或 proxy_on 后 echo $http_proxy
+```
+
 T 分区一般走 `auto` 分支；qoder 需能访问外网 API。
 
 ### qoderclicn 默认简体中文回复
@@ -324,11 +355,16 @@ T 分区一般走 `auto` 分支；qoder 需能访问外网 API。
 始终用简体中文回复用户，除非用户明确要求使用其他语言。…
 ```
 
-**安装 / 重装**（qoder 升级后若 wrapper 被覆盖可再跑）：
+**安装 / 重装**（qoder 升级后若 wrapper 被覆盖，或二进制曾被破坏，可再跑）：
 
 ```bash
+# 若 qoderclicn 无法启动，先强制重装官方二进制，再装 wrapper
+proxy_on
+curl -fsSL https://qoder.com.cn/install | bash -s -- --force
 bash ~/tricks-for-cluster/setup_qoderclicn_zh.sh
 ```
+
+> **注意**：`setup_qoderclicn_zh.sh` 会先 `rm` 掉 `~/.local/bin/qoderclicn` 再写入 wrapper 脚本，避免对 symlink 直接重定向而**覆盖真实二进制**。
 
 | 文件 | 作用 |
 |------|------|
@@ -364,9 +400,10 @@ export QODERCLICN_APPEND_SYSTEM_PROMPT="你的系统提示"
 |------|------|
 | `/skills` 里看不到 Humanize | `codex plugin list` 确认已安装；**新开会话** |
 | RLCR 一轮就停、无 review | 检查 `~/.codex/hooks.json` 与 `[features] hooks = true`；跑 `fix_humanize_codex_hooks.sh` |
-| qoder review 超时 / 失败 | 确认 `qoderclicn` 已登录；看 `.humanize/` 下日志 |
+| qoder review 超时 / 失败 | 确认 `qoderclicn` 已登录；看 `.humanize/` 下日志。反复 `Not logged in`、恢复后又被清空：见 [codex_qoder_auth_and_review_troubleshoot.md](codex_qoder_auth_and_review_troubleshoot.md) |
 | plan 测验看不懂 | 先读 plan 再跑；或 `--skip-quiz` |
-| 想全自动 | `humanize-rlcr plan.md --yolo`（确认 plan 无误再用） |
+| 想跳过方法论分析 | `humanize-rlcr plan.md --privacy` |
+| 方法论阶段要求 Opus / 模型不可用 | Codex+qoder 版已改为使用当前会话可用的 Codex 模型，不再硬编码 Claude Opus；升级/同步 `~/.agents/skills/humanize` 后生效 |
 | 插件升级后 hooks 又报错 | 升级 → `install-skills-codex.sh` → `fix_humanize_codex_hooks.sh` |
 
 ---
@@ -387,6 +424,8 @@ export QODERCLICN_APPEND_SYSTEM_PROMPT="你的系统提示"
 ## 相关文档
 
 - [codex_humanize_setup.md](codex_humanize_setup.md) — 安装、SSH、hooks 修复、升级
+- [codex_qoder_auth_and_review_troubleshoot.md](codex_qoder_auth_and_review_troubleshoot.md) — 登录/403/凭据 wipe 与成功调用流程
+- [codex_humanize_kubebrain_incident_log_2026-08.md](codex_humanize_kubebrain_incident_log_2026-08.md) — 2026-08 问题与方案总表
 - [openai_claude_proxy_notes.md](openai_claude_proxy_notes.md) — Codex 代理、中文回复与输入
 - [codex_domestic_models_setup.md](codex_domestic_models_setup.md) — `codex-cn` 国产模型
 - 上游英文：`~/.codex/.tmp/marketplaces/humanize-codex-qoder/docs/usage.md`

@@ -29,12 +29,29 @@ if [[ -z "$REAL_BIN" || ! -e "$REAL_BIN" ]]; then
   exit 1
 fi
 
+# 若 REAL_BIN 已是本 wrapper 脚本（曾被误写入 symlink 目标），拒绝继续
+if head -1 "$REAL_BIN" 2>/dev/null | grep -q '^#!/usr/bin/env bash'; then
+  if grep -q 'qoderclicn wrapper' "$REAL_BIN" 2>/dev/null; then
+    echo "错误: qoderclicn 二进制已被破坏，请先重装:" >&2
+    echo "  curl -fsSL https://qoder.com.cn/install | bash -s -- --force" >&2
+    exit 1
+  fi
+fi
+
 mkdir -p "$BIN_DIR"
 ln -sf "$REAL_BIN" "$REAL_LINK"
+
+# 必须先删除 symlink，再写入 wrapper 文件；否则 cat> 会覆盖真实二进制
+rm -f "$WRAPPER"
 
 cat >"$WRAPPER" <<'WRAPPER_EOF'
 #!/usr/bin/env bash
 # qoderclicn wrapper: 默认追加简体中文系统提示（由 tricks-for-cluster/setup_qoderclicn_zh.sh 安装）
+
+# Pin HOME for root so auth persists under /root/.qoder-cn
+if [[ "$(id -u)" -eq 0 ]]; then
+  export HOME=/root
+fi
 
 REAL="${QODERCLICN_REAL_BIN:-$HOME/.local/bin/.qoderclicn-real}"
 ZH_PROMPT="${QODERCLICN_APPEND_SYSTEM_PROMPT:-始终用简体中文回复用户，除非用户明确要求使用其他语言。代码、标识符、路径、commit message 等技术内容保持英文。}"
@@ -43,6 +60,20 @@ if [[ ! -e "$REAL" ]]; then
   echo "qoderclicn wrapper: missing real binary at $REAL" >&2
   exit 127
 fi
+
+# T 集群需 Authentik 出站代理才能访问 gateway.qoder.com.cn
+_read_bashrc_var() {
+  local name="$1"
+  grep -E "^${name}=" "$HOME/.bashrc" 2>/dev/null | head -1 | sed -E "s/^${name}=//; s/^\"//; s/\"$//"
+}
+if [[ -z "${http_proxy:-}" && -z "${HTTP_PROXY:-}" ]]; then
+  _PROXY_URL="${PROXY_URL:-$(_read_bashrc_var PROXY_URL)}"
+  if [[ -n "$_PROXY_URL" ]]; then
+    export http_proxy="$_PROXY_URL" https_proxy="$_PROXY_URL"
+    export HTTP_PROXY="$_PROXY_URL" HTTPS_PROXY="$_PROXY_URL"
+  fi
+fi
+unset -f _read_bashrc_var 2>/dev/null || true
 
 # 调用方已显式指定 system prompt 时不重复注入
 for arg in "$@"; do

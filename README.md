@@ -1,5 +1,8 @@
 # tricks-for-cluster
 
+> **Image note:** On the image-persist rootfs, `HOME=/root` and this tree lives at `$HOME/tricks-for-cluster` (also `/root/tricks-for-cluster`). Prefer `$HOME/tricks-for-cluster` or `~/tricks-for-cluster` over hard-coded `/mnt/petrelfs/...` paths for runnable helpers. PVC originals remain under `/wangxuanxu`.
+
+
 在 Slurm 集群（如 shailab / eb3d_t 等环境）下调试、训练与评测时积累的 **Shell 模版、诊断脚本与笔记**。路径与用户名默认使用 `${USER}`，复制到其他账号时请自行替换。
 
 ---
@@ -256,6 +259,16 @@ bash -l -c 'RECURSIVE=0 mysrun -g 0 -c 4 -j prune-ckpt -a bash /mnt/petrelfs/wan
 
 - **内容**：Humanize **中文使用说明**：RLCR 概念、典型工作流、TUI `/skills` 与 shell 命令、`gen-plan` / `refine-plan` / `rlcr` 参数、计划测验、监控、配置、`.humanize/` 目录、FAQ。
 - **适用**：日常用 Humanize 做计划驱动开发与 qoder review。
+
+### `codex_qoder_auth_and_review_troubleshoot.md`
+
+- **内容**：Codex Stop hook 调 **qoderclicn** 时 **Not logged in / 403 / 凭据被自动清空** 的根因、双 HOME 与 Authentik 代理、wrapper/hook 修复、凭据恢复与成功审查判定；含 Smoke 对照结论。
+- **适用**：Humanize review 失败排障；镜像机 + PVC（`/root` vs `/wangxuanxu`）环境。
+
+### `codex_humanize_kubebrain_incident_log_2026-08.md`
+
+- **内容**：**2026-08 Kubebrain Smoke** 问题总表（登录 wipe、review 模型 CLI、effort=`max`、方法论 Opus 遗留、agent 模型档位）与解决方案索引。
+- **适用**：回顾本轮迁移/排障全貌；对接 GitHub `Tricks-for-shailab-cluster`。
 
 ---
 

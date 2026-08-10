@@ -73,10 +73,11 @@ bash ~/.codex/.tmp/marketplaces/humanize-codex-qoder/scripts/install-skills-code
 ### qoderclicn 默认中文回复
 
 ```bash
+# 二进制损坏时先: curl -fsSL https://qoder.com.cn/install | bash -s -- --force
 bash ~/tricks-for-cluster/setup_qoderclicn_zh.sh
 ```
 
-为 `qoderclicn` 安装 wrapper，Humanize review / `ask-codex` 默认输出简体中文。详见 [codex_humanize_usage_zh.md](codex_humanize_usage_zh.md)。
+为 `qoderclicn` 安装 wrapper（须先 `rm` 旧 symlink 再写脚本，勿覆盖真实二进制）。Humanize review / `ask-codex` 默认输出简体中文。详见 [codex_humanize_usage_zh.md](codex_humanize_usage_zh.md)。
 
 ---
 
@@ -157,7 +158,7 @@ humanize-rlcr docs/plan.md
 | `install.sh: ORIGINAL_ARGS unbound` | 改用 `install-skills-codex.sh --target codex` |
 | bubblewrap 警告 | 可忽略，Codex 使用 bundled bubblewrap |
 | RLCR 不触发 review | 检查 `~/.codex/hooks.json` 无 `description` 且 `[features] hooks = true` |
-| qoder review 失败 | 确认 `qoderclicn` 可用且已登录；H 集群代理由插件脚本自动处理 |
+| qoder review 失败 | 确认 `qoderclicn` 可用且已登录；H 集群代理由插件脚本自动处理。若反复 `Not logged in` / hook 后凭据消失，见 **[codex_qoder_auth_and_review_troubleshoot.md](codex_qoder_auth_and_review_troubleshoot.md)**（HOME 错位、Authentik 403、`automatic_auth_rejection`） |
 
 ---
 
@@ -175,6 +176,15 @@ bash ~/tricks-for-cluster/fix_humanize_codex_hooks.sh
 ## 相关文档
 
 - **[codex_humanize_usage_zh.md](codex_humanize_usage_zh.md)** — **使用说明（中文）**：命令、RLCR 流程、配置、监控
+- **[codex_qoder_auth_and_review_troubleshoot.md](codex_qoder_auth_and_review_troubleshoot.md)** — qoder 登录失败 / Stop hook 审查失败：原因、修复与成功判定
+- **[codex_humanize_kubebrain_incident_log_2026-08.md](codex_humanize_kubebrain_incident_log_2026-08.md)** — 2026-08 问题与解决方案总表
 - [openai_claude_proxy_notes.md](openai_claude_proxy_notes.md) — Codex / CloseAI 代理、中文回复与输入
 - [codex_domestic_models_setup.md](codex_domestic_models_setup.md) — `codex-cn` 国产模型
 - 上游英文：`~/.codex/.tmp/marketplaces/humanize-codex-qoder/docs/usage.md`
+
+## 方法论阶段（Codex+qoder，非 Claude Opus）
+
+Claude 时代 Humanize 在退出前会要求 spawn **Opus** 做脱敏方法论分析。当前 **Codex + qoderclicn** 运行时通常无 Opus，会导致无意义的失败与回退。
+
+本机技能已改为：使用**当前会话可用的 Codex 模型**完成该阶段；计划测验 / 合规检查也不再硬编码 `opus`/`sonnet`。不需要该阶段时加 `--privacy`。细节见 [codex_humanize_kubebrain_incident_log_2026-08.md](codex_humanize_kubebrain_incident_log_2026-08.md)。
+
