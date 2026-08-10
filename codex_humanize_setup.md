@@ -171,6 +171,17 @@ bash ~/.codex/.tmp/marketplaces/humanize-codex-qoder/scripts/install-skills-code
 bash ~/tricks-for-cluster/fix_humanize_codex_hooks.sh
 ```
 
+### Humanize 代码回推约定（重要）
+
+对本机 `~/.agents/skills/humanize` 的修改，**默认只推送到个人仓库**：
+
+- 推送目标：[`Harold-Finchwxx/humanize-codex-qoder`](https://github.com/Harold-Finchwxx/humanize-codex-qoder)  
+  (`git@github.com:Harold-Finchwxx/humanize-codex-qoder.git`)
+- **不要**默认直推合作者师兄仓库 [`HaoyiZhu/humanize-codex-qoder`](https://github.com/HaoyiZhu/humanize-codex-qoder)
+- 需要合入上游时：从个人 fork 开 PR，或与仓库维护者另行协商
+
+安装 / marketplace 仍可继续跟踪上游 `HaoyiZhu/humanize-codex-qoder`（见上文安装步骤）。
+
 ---
 
 ## 相关文档

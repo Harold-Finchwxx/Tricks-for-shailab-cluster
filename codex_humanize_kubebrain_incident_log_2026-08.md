@@ -17,7 +17,8 @@
 | [codex_humanize_usage_zh.md](codex_humanize_usage_zh.md) | 日常用法、`--qoder-model`、effort=`max` |
 | `setup_qoderclicn_zh.sh` | qoder wrapper（HOME / 代理 / auth 回填） |
 
-**运行时修复落点（非本仓库）：** `~/.agents/skills/humanize/`（上游 [`humanize-codex-qoder`](https://github.com/HaoyiZhu/humanize-codex-qoder)）。
+**运行时修复落点（非本仓库）：** `~/.agents/skills/humanize/`  
+默认回推个人 fork：[`Harold-Finchwxx/humanize-codex-qoder`](https://github.com/Harold-Finchwxx/humanize-codex-qoder)（**不要**默认直推合作者 [`HaoyiZhu/humanize-codex-qoder`](https://github.com/HaoyiZhu/humanize-codex-qoder)）。
 
 ---
 
@@ -121,7 +122,9 @@ humanize-rlcr plans/x.md --privacy
 ## 4. 维护约定
 
 1. **文档**：改 `tricks-for-cluster` 后同步 `/root` 与 `/wangxuanxu`，并推送本 GitHub 仓。
-2. **技能代码**：改 `~/.agents/skills/humanize` 后同步 PVC 副本，并尽量回推 `humanize-codex-qoder`（避免仅停在本机）。
+2. **技能代码**：改 `~/.agents/skills/humanize` 后同步 PVC 副本，并回推个人 fork  
+   **`Harold-Finchwxx/humanize-codex-qoder`**（`git@github.com:Harold-Finchwxx/humanize-codex-qoder.git`）。  
+   **不要**默认直推合作者仓库 `HaoyiZhu/humanize-codex-qoder`；上游合并由个人 fork 发 PR / 另行协商。
 3. **升级插件**后复查：HOME/proxy/auth-backup、`--qoder-model`、`max` effort、方法论非 Opus 文案是否被上游覆盖冲掉。
 
 ---
