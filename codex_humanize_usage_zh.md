@@ -117,8 +117,9 @@ ask-codex "这个接口设计有没有明显问题？"
 
 ### 中文 prompt 输入
 
-Cursor SSH 终端里 IME 常失效。可：
+Cursor SSH 终端里 IME 常失效。优先：
 
+- **Windows 用微软拼音（或 Rime），不要用搜狗/百度**——聊天框能打中文、远端终端不能时，只换输入法即可；已验证无需改 Cursor 设置、无需在集群装输入法
 - TUI 内 **粘贴** 中文（`Ctrl+Shift+V`）
 - 用 **`codex-cn-ask "中文问题"`** 发非交互任务（见 [openai_claude_proxy_notes.md](openai_claude_proxy_notes.md)）
 
@@ -528,7 +529,7 @@ export QODERCLICN_APPEND_SYSTEM_PROMPT="你的系统提示"
 | 日常实现用国产模型 | 先 `codex-cn`，TUI `/model` 选 DeepSeek 等；RLCR 实现走当前 Codex 会话模型 |
 | 实现用 GPT | `codex` + CloseAI |
 | Humanize 插件技能 | `/skills` 选 `humanize-codex-qoder:*` |
-| 中文输入困难 | 粘贴 或 `codex-cn-ask` |
+| 中文输入困难 | Windows 换微软拼音（勿用搜狗）；或粘贴 / `codex-cn-ask` |
 | hooks 报警 | `bash ~/tricks-for-cluster/fix_humanize_codex_hooks.sh` |
 
 ---

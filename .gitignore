@@ -1,0 +1,11 @@
+__pycache__/
+*.py[cod]
+*.pyo
+.DS_Store
+lab-open-api/
+*.zip
+.env
+.env.*
+*_env
+.domestic_models_env
+.deepseek_env

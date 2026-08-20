@@ -237,7 +237,7 @@ bash -l -c 'RECURSIVE=0 mysrun -g 0 -c 4 -j prune-ckpt -a bash /mnt/petrelfs/wan
 
 ### `openai_claude_proxy_notes.md`
 
-- **内容**：T 集群 **CloseAI 专用代理**；**`codex` / `claude` 包装**；Node.js 与 CLI 安装；**Codex 默认简体中文回复**（`AGENTS.md`）；**SSH/Cursor 终端 IME 无法输入中文**（原因、自测、`codex-cn-ask`、粘贴、`disable_paste_burst`）及常见问题。
+- **内容**：T 集群 **CloseAI 专用代理**；**`codex` / `claude` 包装**；Node.js 与 CLI 安装；**Codex 默认简体中文回复**（`AGENTS.md`）；**SSH/Cursor 终端 IME 无法输入中文**（**Windows 用微软拼音不用搜狗**、原因、自测、`codex-cn-ask`、粘贴）及常见问题。
 - **适用**：在集群上使用 Codex CLI、Claude Code 访问 OpenAI / Anthropic API。
 
 ### `codex_domestic_models_setup.md`

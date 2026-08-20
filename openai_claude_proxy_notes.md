@@ -260,8 +260,24 @@ bash ~/tricks-for-cluster/setup_qoderclicn_zh.sh
 ### 现象
 
 - 在 Cursor 集成终端 SSH 到集群后，切换到中文输入法，**bash 或 Codex TUI 输入框里敲拼音无反应或无法上屏**
+- **Cursor 聊天框能打中文**，同一窗口的远端终端却不能（粘贴中文通常仍可用）
 - 有时仅 **Codex 第二轮对话后** IME 才异常（Codex TUI 已知 bug）
-- **粘贴**中文到终端通常正常
+
+### 已验证（2026-08-19，Windows + Cursor Remote SSH）
+
+**只把本机输入法从搜狗拼音换成微软拼音，远端终端即可直接打中文**；未改 Cursor 设置、未在集群装输入法。
+
+| 位置 | 搜狗拼音 | 微软拼音 |
+|------|----------|----------|
+| Cursor 聊天框 | 正常 | 正常 |
+| Cursor 远端集成终端（bash / Codex TUI） | 拼音不上屏，或打成英文字母 | 可直接组字上屏 |
+| 终端里粘贴中文 | 可用 | 可用 |
+
+聊天框是普通文本框，Chromium 对残缺 IME 事件有兜底；集成终端是 xterm.js，几乎只认标准组字事件：
+
+`compositionstart` → `compositionupdate` → `compositionend`
+
+微软拼音走系统 TSF，会发齐这些事件。搜狗常只发 `keyup`、跳过 `compositionend`，并把拼音键当普通按键送进 PTY；另外搜狗有应用白名单（如 `chrome.exe` / `Code.exe`），**`Cursor.exe` 通常不在名单里**。不要在无桌面的集群节点上装 fcitx/ibus，拦不到本机按键。
 
 ### 原因（不是 Codex 配置错误）
 
@@ -273,9 +289,9 @@ bash ~/tricks-for-cluster/setup_qoderclicn_zh.sh
 
 | 层级 | 说明 |
 |------|------|
-| 集群 | locale 已是 `en_US.UTF-8`，**显示**中文正常；**不负责**提供输入法 |
+| 集群 | locale 已是 UTF-8（如 `C.UTF-8` / `en_US.UTF-8`），**显示**中文正常；**不负责**提供输入法 |
 | SSH | 字符由本机 IME 经 SSH 客户端送入，编码需 UTF-8 |
-| Cursor 终端 | xterm.js 对部分 IME（如搜狗/百度）兼容性差；粘贴 UTF-8 一般可用 |
+| Cursor 终端 | xterm.js 对部分 IME（搜狗/百度）兼容性差；微软拼音 / Rime 通常可用；粘贴 UTF-8 一般可用 |
 | Codex TUI | 全屏 TUI + IME 组合输入更易出问题；`disable_paste_burst` 可减轻粘贴被吞 |
 
 ### 自测
@@ -291,11 +307,15 @@ read -r -p "粘贴「测试」后回车: " line; echo "收到: $line"
 
 ### 推荐做法（按优先级）
 
-**1. 粘贴（交互 TUI 最稳）**
+**1. Windows：用微软拼音（或 Rime），不要用搜狗/百度（首选）**
 
-本地编辑器写好中文 → Codex 输入框 **`Ctrl+Shift+V`**（Mac 可试 `Cmd+V`）。
+Cursor 远端终端里，这是改动最小、也已验证有效的做法。不必改 `settings.json`、不必在集群装输入法。仍想用搜狗时，可试「系统候选框 / 兼容模式」，但不稳。
 
-**2. `codex-cn-ask` / `codex-ask`（已写入 `~/.bashrc` / `~/.zshrc`）**
+**2. 粘贴（交互 TUI 仍可用）**
+
+本地编辑器或聊天框写好中文 → 终端 / Codex 输入框 **`Ctrl+Shift+V`**（Mac 可试 `Cmd+V`）。
+
+**3. `codex-cn-ask` / `codex-ask`（已写入 `~/.bashrc` / `~/.zshrc`）**
 
 绕开 TUI 输入框，用非交互 `exec` 发送中文 prompt：
 
@@ -314,16 +334,16 @@ codex-ask "解释这段代码"
 codex-ask -f ~/prompt.txt
 ```
 
-**3. 换终端或输入法**
+**4. 换终端或其它兜底**
 
 | 尝试 | 说明 |
 |------|------|
-| **Windows Terminal / iTerm** 直连 SSH | IME 往往优于 Cursor 集成终端 |
-| Windows 换 **微软拼音** 或 **Rime** | 搜狗/百度在 VS Code 系终端常完全失效 |
+| **Windows Terminal / iTerm** 直连 SSH | 外置终端的 IME 往往优于 Cursor 集成终端 |
 | Codex 升级 | `codex update`（旧版 TUI IME bug 较多） |
 | 失焦再聚焦 | 切到其他窗口再点回终端（Windows 上偶有效） |
+| `terminal.integrated.gpuAcceleration: "off"` | 可选；微软拼音已够用时不必改 |
 
-**4. Cursor 设置（可选）**
+**5. Cursor 设置（可选）**
 
 用户 `settings.json` 关闭远程终端 local echo，减轻高延迟下字符错乱：
 
@@ -345,9 +365,9 @@ codex-ask -f ~/prompt.txt
 | 配置 | 作用 |
 |------|------|
 | `~/.codex/AGENTS.md` + `developer_instructions` | Codex **输出**用简体中文 |
-| 粘贴 / `codex-cn-ask` | 你**输入**中文 prompt |
+| 本机微软拼音（Cursor 终端）/ 粘贴 / `codex-cn-ask` | 你**输入**中文 prompt |
 
-二者独立：即使输入用英文，Codex 仍会中文回复；输入中文时推荐粘贴或 `codex-cn-ask`。
+二者独立：即使输入用英文，Codex 仍会中文回复。Cursor 远端终端优先换微软拼音；粘贴与 `codex-cn-ask` 仍可作为兜底。
 
 ---
 

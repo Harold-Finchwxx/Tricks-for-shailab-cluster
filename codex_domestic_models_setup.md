@@ -88,13 +88,17 @@ bash ~/tricks-for-cluster/start_domestic_gateway.sh
 
 Cursor 集成终端经 SSH 使用中文 IME 常失效（与模型无关）。推荐：
 
+- **Windows 用微软拼音（或 Rime），不要用搜狗/百度**（已验证：聊天框正常时，只换输入法即可在远端终端打中文）
+- 交互 TUI 内 **粘贴** 中文（`Ctrl+Shift+V`）
+- 非交互：
+
 ```bash
 # 非交互，直接发中文（等同 codex-cn + exec）
 codex-cn-ask "你的中文问题"
 codex-cn-ask -f prompt.txt
 ```
 
-交互 TUI 内可 **粘贴** 中文（`Ctrl+Shift+V`）。完整说明见 [openai_claude_proxy_notes.md — SSH / Cursor 终端无法输入中文](openai_claude_proxy_notes.md#ssh--cursor-终端无法输入中文ime)。
+完整说明见 [openai_claude_proxy_notes.md — SSH / Cursor 终端无法输入中文](openai_claude_proxy_notes.md#ssh--cursor-终端无法输入中文ime)。
 
 Codex **回复**默认简体中文（`~/.codex/AGENTS.md`），见同文档「Codex 默认中文回复」一节。
 
@@ -124,7 +128,7 @@ Codex **回复**默认简体中文（`~/.codex/AGENTS.md`），见同文档「Co
 
 | 现象 | 处理 |
 |------|------|
-| 终端 / TUI 无法输入中文 | Cursor SSH + IME 限制；用 **`codex-cn-ask`** 或粘贴；见 [openai_claude_proxy_notes.md](openai_claude_proxy_notes.md#ssh--cursor-终端无法输入中文ime) |
+| 终端 / TUI 无法输入中文 | Windows 换 **微软拼音**（勿用搜狗）；或 **`codex-cn-ask`** / 粘贴；见 [openai_claude_proxy_notes.md](openai_claude_proxy_notes.md#ssh--cursor-终端无法输入中文ime) |
 | 长时间 Working | 检查 `proxy-logs/*.log` 是否 timeout；确认 `proxy_on` 出站可用 |
 | 401 invalid key | 检查对应 `*_API_KEY` 是否正确；改 Key 后重启桥接 |
 | 404 | 模型 ID 错误或 upstream base_url 不对 |
