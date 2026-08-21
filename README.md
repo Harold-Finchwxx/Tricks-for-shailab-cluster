@@ -7,6 +7,19 @@
 
 ---
 
+## 重要（先读）
+
+| 类型 | 文件 | 说明 |
+|------|------|------|
+| **Conda + ClusterX** | **[`conda_clusterx_setup.md`](conda_clusterx_setup.md)** | **权威设置：PVC conda、`clusterx-cli`、PATH、配置** |
+| **运维纪律 / 报告** | **[`agent_ops_and_reporting.md`](agent_ops_and_reporting.md)** | **文档双写、镜像备份提醒、agent-exec-report** |
+| **写报告脚本** | [`scripts/write_agent_exec_report.sh`](scripts/write_agent_exec_report.sh) | 北京时间时段报告（删除安全） |
+
+团队工作区入口：`/wam-model/wangxuanxu/ENVIRONMENT.md` · Agent 规则：`/wam-model/wangxuanxu/codex-home/AGENTS.md`  
+时段报告目录：`/wangxuanxu/agent-exec-report/`
+
+---
+
 ## 目录
 
 | 类型 | 文件 | 说明 |
@@ -243,6 +256,7 @@ bash -l -c 'RECURSIVE=0 mysrun -g 0 -c 4 -j prune-ckpt -a bash /mnt/petrelfs/wan
 ### `codex_domestic_models_setup.md`
 
 - **内容**：Codex CLI 统一接入 **DeepSeek / Qwen / GLM / Kimi**；`domestic_models.conf`、多端口 Responses 桥接 + **8786 统一网关**、`~/.domestic_models_env`、快捷命令 **`codex-cn`**（TUI 内 `/model` 切换）；Coding Plan vs API 说明。
+- **humanize24 出站**：监督器直启 Codex 时使用 `HUMANIZE24_CODEX_PROXY` 固定到 CloseAI，避免继承通用 Authentik 后被 ChatGPT Cloudflare 403；详见 `openai_claude_proxy_notes.md` 与 `codex_humanize_usage_zh.md`。
 - **适用**：在集群 Codex 中使用多家国产 coding API。
 
 ### `codex_deepseek_setup.md`

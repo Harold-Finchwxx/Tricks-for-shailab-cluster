@@ -346,6 +346,20 @@ codex --ask-for-approval never --sandbox danger-full-access
 #   docs/plan.md --yolo --max 80
 ```
 
+##### humanize24 的 Codex 专用出口
+
+在 T 集群上，`humanize24` 直接执行 Codex 二进制，不经过 `.bashrc` 的 `codex()`
+函数。必须确保启动器专用代理指向 CloseAI，而不是通用 Authentik 出口：
+
+```bash
+export HUMANIZE24_CODEX_PROXY="$CLOSEAI_PROXY_ADDR"
+humanize24 doctor --project /path/to/project
+```
+
+`doctor` 应显示 `[OK] codex-proxy: http://closeai-proxy.pjlab.org.cn:23128`。
+该值只注入 Codex 子进程且不写入 state；qoderclicn Stop hook 仍使用自己的
+Authentik 代理配置。
+
 另开一个终端看进度（见「五、监控进度」），例如：
 
 ```bash

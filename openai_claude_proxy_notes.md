@@ -68,6 +68,19 @@ command codex
 command claude
 ```
 
+### 4. humanize24 专用代理
+
+`humanize24` 的监督器通过 Python 直接启动 Codex，不会经过上述 `codex()` shell
+函数。因此必须单独导出：
+
+```bash
+export HUMANIZE24_CODEX_PROXY="$CLOSEAI_PROXY_ADDR"
+```
+
+启动器会仅在 Codex 子进程中用该值覆盖大小写 `HTTP(S)_PROXY` 和 `ALL_PROXY`；
+不会把代理 URL 写入 launcher state。Humanize 的 qoderclicn Stop hook 仍按其独立
+配置使用 Authentik 通用出口。
+
 ---
 
 ## 使用方法
@@ -188,6 +201,16 @@ claude --version
 2. `curl ipinfo.io` 是否显示美国 IP；
 3. 是否误用了 `proxy_on`（Authentik）而非 CloseAI；
 4. API Key / ChatGPT 登录是否已在 CLI 内完成（与代理无关，但无凭证同样无法调用）。
+
+若只有 `humanize24` 失败，还需运行：
+
+```bash
+echo "$HUMANIZE24_CODEX_PROXY"
+humanize24 doctor --project /path/to/project
+```
+
+`doctor` 的 `codex-proxy` 应显示 CloseAI 的脱敏 endpoint；若显示
+`not configured`，说明当前 shell 尚未加载新配置。
 
 ### 4. 与 `proxy_on` / `proxy_off` 的关系
 
