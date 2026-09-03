@@ -379,6 +379,53 @@ ls -lt .humanize/rlcr/*/
 | hooks 未生效 | `fix_humanize_codex_hooks.sh` 后**新开** Codex 会话 |
 | `--max` 轮数用尽 | 加大 `--max` 或根据 review 结果改 plan 再开一轮 |
 
+#### 主线交付与防止局部补丁循环
+
+用户给出明确结果与时限时，RLCR 每轮必须先闭合一个能产生该结果的最小端到端切片。
+重构、通用框架补齐、扩大测试矩阵、文档整理和防御性编程，除非直接影响结果正确性、
+数据完整性、秘密保护、测试隔离或任务能否运行，否则保持 queued，不得替代主线。
+
+评审不得把 queued 项反复扩张为新主线。若同类缺口连续出现，下一轮的唯一目标应是
+完成一个可验收闭环，而不是继续追加局部补丁。总结只使用“已通过 / 未通过 / 未执行”
+三态；“完成/可用”必须绑定可复查命令或产物。用户在同一授权范围内更新的明确优先级
+覆盖旧的暂定任务顺序，但不覆盖数据安全、秘密保护、禁止测试泄露和禁止伪造结果。
+
+#### 异步 Job 的闭环责任
+
+Humanize 计划或轮次一旦提交训练、评测或数据处理 Job，主线任务必须保留到业务终态，
+不能以“已提交”结束。排队阶段采用低频调度状态轮询；运行阶段同时检查持久日志、
+各必要分片、退出码和预期产物，可用状态触发减少无效上下文消耗。除非用户明确要求
+暂停、停止或移交，否则循环应持续监控。
+
+只有调度正常结束、必要分片全部成功、结果文件存在且可解析、关键计数符合既定协议，
+才可声明完成。确定无效且持续消耗 API 额度或算力的任务，应按用户授权及时止损，
+记录首个有效错误并在修复后重提；评审须把这组证据作为主线验收条件。
+
+#### humanize24 当前监督与报告边界
+
+当前安装包含兼容入口和 13 个 `humanize24` package 运行模块。除启动、恢复和
+状态命令外，还可只读列出或补生成北京时间硬槽报告：
+
+```bash
+humanize24 status --json --project <root>
+humanize24 report --project <root>
+humanize24 report --project <root> --slot YYYY-MM-DD/1200
+```
+
+本机真实 fixture 结果为 `G1=BLOCKED`、`G2=FAIL`，所以自动 same-turn wake 和
+broker action 都关闭。事件只会进入私有不可变账本并在状态中显示
+`NEEDS_OPERATOR`；不得用 `tmux send-keys`、TUI 注入或共享 Stop hook 修改绕过。
+
+watchdog 仅在受监督 Codex child 运行时 tick；child 退出到精确 UUID 恢复之间的
+tail 停滞会延迟到下次启动观察，但 replay/event ID 会去重。wake 的预算窗口与
+cooldown 独立，cooldown 读取完整单调历史的最后一次尝试。`PHASE_READY` progress
+可为 0；策略中的 `READY + next_allowed_at=now` 仅表示立即具备资格，不表示已经
+唤醒或执行动作。
+
+报告从不可变事件账本确定性重建，不作为状态、锁或游标。发布会将目标目录收紧为
+0700，适用于当前单用户个人报告根；如增加多用户读取者必须先重审权限。日期目录
+中的陌生文件会保留，补生成不是目录清理或自愈。
+
 #### 快速对照：交互 vs 无人值守
 
 | 场景 | Humanize | Codex | Qoder |
@@ -524,7 +571,8 @@ bash ~/tricks-for-cluster/setup_qoderclicn_zh.sh
 |------|------|
 | `~/.local/bin/qoderclicn` | wrapper 脚本 |
 | `~/.local/bin/.qoderclicn-real` | 指向真实 qoderclicn 二进制 |
-| `~/.config/humanize/config.json` | `qoder_append_system`（与 Codex 中文偏好对齐） |
+| `~/.qoder-cn/AGENTS.md`（同步 `/wangxuanxu/.qoder-cn/AGENTS.md`） | QoderCN Research Taste（原生加载；非 `~/.codex/AGENTS.md`） |
+| `~/.config/humanize/config.json` | `qoder_append_system`（中文）；`qoder_research_taste_ssot` / `qoder_agents_md` 指针 |
 
 自定义提示词（临时）：
 
