@@ -12,6 +12,7 @@
 | 类型 | 文件 | 说明 |
 |------|------|------|
 | **Conda + ClusterX** | **[`conda_clusterx_setup.md`](conda_clusterx_setup.md)** | **权威设置：PVC conda、`clusterx-cli`、PATH、配置** |
+| **团队 GPU 看板** | **[`team-gpu-dashboard/README.md`](team-gpu-dashboard/README.md)** | **ClusterX 全队列 GPU 占用、剩余量及排队计划单屏监控** |
 | **运维纪律 / 报告** | **[`agent_ops_and_reporting.md`](agent_ops_and_reporting.md)** | **文档双写、镜像备份提醒、agent-exec-report** |
 | **写报告脚本** | [`scripts/write_agent_exec_report.sh`](scripts/write_agent_exec_report.sh) | 北京时间时段报告（删除安全） |
 
@@ -29,6 +30,7 @@
 | s3mount | [`s3mount_compute_example.sh`](s3mount_compute_example.sh) | 计算节点上 s3mount 的 sbatch 示例与清理 |
 | Slurm | [`slurm_only.sh`](slurm_only.sh) | 防止在登录节点执行的小片段 |
 | 监控 | [`gpu_overview.sh`](gpu_overview.sh) | 按分区与 quota 类型汇总 GPU 占用 |
+| 监控 | [`team-gpu-dashboard/`](team-gpu-dashboard/) | ClusterX 团队 GPU 占用与排队计划单屏 TUI；命令 `team-gpu` |
 | 节点分析 | [`node_list.py`](node_list.py)、[`nodelist.py`](nodelist.py) | 解析 `squeue` 原始输出，按节点统计作业 |
 | 编辑器 | [`cursor_install.sh`](cursor_install.sh) | 在集群侧安装 Cursor Server（远程开发） |
 | 文档 | [`nccl_ib_p2p_multi_gpu_training.md`](nccl_ib_p2p_multi_gpu_training.md) | NCCL `IB_DISABLE` / `P2P_DISABLE` 说明 |

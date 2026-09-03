@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # 为 qoderclicn 注入默认「简体中文回复」系统提示（wrapper）
+# Research Taste 请写入 ~/.qoder-cn/AGENTS.md（并同步 /wangxuanxu/.qoder-cn/AGENTS.md）
 # 安装: bash ~/tricks-for-cluster/setup_qoderclicn_zh.sh
 
 set -euo pipefail
@@ -47,6 +48,7 @@ rm -f "$WRAPPER"
 cat >"$WRAPPER" <<'WRAPPER_EOF'
 #!/usr/bin/env bash
 # qoderclicn wrapper: 默认追加简体中文系统提示（由 tricks-for-cluster/setup_qoderclicn_zh.sh 安装）
+# Research Taste 由 ~/.qoder-cn/AGENTS.md 提供，不在此注入。
 
 # Pin HOME for root so auth persists under /root/.qoder-cn
 if [[ "$(id -u)" -eq 0 ]]; then
@@ -54,7 +56,7 @@ if [[ "$(id -u)" -eq 0 ]]; then
 fi
 
 REAL="${QODERCLICN_REAL_BIN:-$HOME/.local/bin/.qoderclicn-real}"
-ZH_PROMPT="${QODERCLICN_APPEND_SYSTEM_PROMPT:-始终用简体中文回复用户，除非用户明确要求使用其他语言。代码、标识符、路径、commit message 等技术内容保持英文。}"
+ZH_PROMPT="${QODERCLICN_APPEND_SYSTEM_PROMPT:-${QODERCLICN_ZH_PROMPT:-始终用简体中文回复用户，除非用户明确要求使用其他语言。代码、标识符、路径、commit message 等技术内容保持英文。}}"
 
 if [[ ! -e "$REAL" ]]; then
   echo "qoderclicn wrapper: missing real binary at $REAL" >&2
@@ -89,7 +91,7 @@ WRAPPER_EOF
 
 chmod +x "$WRAPPER"
 
-# Humanize 配置（ask-qoder 若未来读取该键可复用；文档用途）
+# Humanize 配置（文档/兼容用途）
 mkdir -p "$(dirname "$HUMANIZE_CFG")"
 python3 - "$HUMANIZE_CFG" "$DEFAULT_ZH_PROMPT" <<'PY'
 import json
@@ -104,9 +106,63 @@ if path.is_file():
     if not isinstance(data, dict):
         raise SystemExit(f"invalid json object: {path}")
 data["qoder_append_system"] = prompt
+# Research Taste 已迁至 ~/.qoder-cn/AGENTS.md；保留 SSOT 指针便于文档检索
+data["qoder_research_taste_ssot"] = "/wangxuanxu/tricks-for-cluster/RESEARCH-TASTE.md"
+data["qoder_agents_md"] = str(pathlib.Path.home() / ".qoder-cn" / "AGENTS.md")
 path.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
 print(f"OK  {path}")
 PY
+
+PVC_HUMANIZE_CFG="/wangxuanxu/.config/humanize/config.json"
+if [[ "$HUMANIZE_CFG" != "$PVC_HUMANIZE_CFG" ]]; then
+  mkdir -p "$(dirname "$PVC_HUMANIZE_CFG")"
+  python3 - "$PVC_HUMANIZE_CFG" "$DEFAULT_ZH_PROMPT" <<'PY'
+import json
+import pathlib
+import sys
+
+path = pathlib.Path(sys.argv[1])
+prompt = sys.argv[2]
+data = {}
+if path.is_file():
+    data = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(data, dict):
+        raise SystemExit(f"invalid json object: {path}")
+data["qoder_append_system"] = prompt
+data["qoder_research_taste_ssot"] = "/wangxuanxu/tricks-for-cluster/RESEARCH-TASTE.md"
+data["qoder_agents_md"] = "/wangxuanxu/.qoder-cn/AGENTS.md"
+path.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+print(f"OK  {path}")
+PY
+fi
+
+# 同步 PVC 侧 wrapper
+PVC_BIN="/wangxuanxu/.local/bin"
+if [[ "$BIN_DIR" != "$PVC_BIN" ]]; then
+  mkdir -p "$PVC_BIN"
+  if [[ -e "$REAL_LINK" ]]; then
+    ln -sfn "$(readlink -f "$REAL_LINK")" "$PVC_BIN/.qoderclicn-real"
+  fi
+  cp -f "$WRAPPER" "$PVC_BIN/qoderclicn"
+  chmod +x "$PVC_BIN/qoderclicn"
+  sed -i 's|REAL="${QODERCLICN_REAL_BIN:-$HOME/.local/bin/.qoderclicn-real}"|REAL="${QODERCLICN_REAL_BIN:-/wangxuanxu/.local/bin/.qoderclicn-real}"|' "$PVC_BIN/qoderclicn"
+  echo "OK  PVC wrapper -> $PVC_BIN/qoderclicn"
+fi
+
+# 同步 Qoder AGENTS.md（Research Taste）到 PVC，若本机已有
+ROOT_AGENTS="${HOME}/.qoder-cn/AGENTS.md"
+PVC_AGENTS="/wangxuanxu/.qoder-cn/AGENTS.md"
+if [[ -f "$ROOT_AGENTS" ]]; then
+  mkdir -p "$(dirname "$PVC_AGENTS")"
+  cp -a "$ROOT_AGENTS" "$PVC_AGENTS"
+  echo "OK  synced AGENTS.md -> $PVC_AGENTS"
+elif [[ -f "$PVC_AGENTS" ]]; then
+  mkdir -p "$(dirname "$ROOT_AGENTS")"
+  cp -a "$PVC_AGENTS" "$ROOT_AGENTS"
+  echo "OK  synced AGENTS.md -> $ROOT_AGENTS"
+else
+  echo "NOTE  未找到 Qoder AGENTS.md；请写入 $ROOT_AGENTS（Research Taste）" >&2
+fi
 
 echo "OK  wrapper -> $WRAPPER"
 echo "OK  real bin -> $REAL_BIN (via $REAL_LINK)"

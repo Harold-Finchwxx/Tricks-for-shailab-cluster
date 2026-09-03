@@ -135,3 +135,37 @@ registry.pjlab.org.cn/wxx_pre_setting:<tag>
 3. 可复用脚本放团队工作区 `project/<name>/`；调度壳放 `clusterx-tmp/<name>/`。
 4. 团队盘在 Job 内路径为 `/share/...`；开发机通过 `/share`→`/wam-model` 对齐。解析工作区仍可用 `WX_WORKSPACE_ROOT` / `resolve_root.sh`。
 5. 配置以 `/root/.config/clusterx.yaml` 为准（PVC 副本：`/wangxuanxu/.config/clusterx.yaml`）。
+
+---
+
+## 6. 团队 GPU 单屏看板（`team-gpu`）
+
+维护位置：
+
+- 实现：`/wangxuanxu/tricks-for-cluster/team-gpu-dashboard/team_gpu.py`
+- 说明：`/wangxuanxu/tricks-for-cluster/team-gpu-dashboard/README.md`
+- PATH 命令：`/wangxuanxu/bin/team-gpu`
+
+持续刷新（推荐）：
+
+```bash
+team-gpu --watch 10
+```
+
+也可使用外部 `watch`：
+
+```bash
+watch -c -n 10 team-gpu
+```
+
+看板显示全队列 GPU 总数、节点已分配量、剩余量、运行 Job 申请量、排队 Job
+计划量、各用户占用/排队 GPU，以及所有 GPU 排队任务。高度不足 35 行时自动使用
+紧凑布局；当前 80×24 终端已验证可单屏显示常规队列状态。
+
+该工具显式规避 `clusterx==2026.7.28` 的两个分页问题：节点接口设置
+`page_size=100`，Job 接口持续遍历 `next_page_token`。多 task Job 按每个 task 的
+`replicas × accelerate_device_count` 分别求和。CPU-only 排队 Job 只显示数量，
+不会挤占 GPU 排队任务区域。
+
+节点调度接口和 workspace Job 接口可能因可见范围或采样时序产生差额；看板会如实
+显示差额，不将无法归属的 GPU 强行计入某个用户。

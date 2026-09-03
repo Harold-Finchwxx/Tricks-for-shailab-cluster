@@ -260,19 +260,28 @@ codex -c 'developer_instructions="Respond in English for this session."'
 
 国产模型 catalog 中的系统指令为英文，不影响上述「用户可见回复用中文」的偏好；代码与 commit 仍建议按项目惯例使用英文。
 
-### qoderclicn 默认简体中文（Humanize review）
+### qoderclicn 默认简体中文 + Research Taste
 
-Humanize 的 review 端走 **qoderclicn**，需单独配置（与 Codex 的 `AGENTS.md` 无关）：
+Humanize 的 review 端走 **qoderclicn**，与 Codex 的 `~/.codex/AGENTS.md` **路径不同**（Qoder 不读 Codex 家目录那份）：
+
+**1. Research Taste（原生 AGENTS.md）**
+
+- `~/.qoder-cn/AGENTS.md`（本机生效；root 下即 `/root/.qoder-cn/AGENTS.md`）
+- 同步副本：`/wangxuanxu/.qoder-cn/AGENTS.md`
+- 摘要 + 指向 SSOT：`/wangxuanxu/tricks-for-cluster/RESEARCH-TASTE.md`
+
+**2. 简体中文偏好（wrapper）**
 
 ```bash
 bash ~/tricks-for-cluster/setup_qoderclicn_zh.sh
 ```
 
-- 在 `~/.local/bin/qoderclicn` 安装 wrapper，自动 `--append-system-prompt` 中文偏好
+- 安装 `~/.local/bin/qoderclicn` wrapper，自动 `--append-system-prompt` 中文偏好
 - 写入 `~/.config/humanize/config.json` 的 `qoder_append_system`
-- 自定义：`export QODERCLICN_APPEND_SYSTEM_PROMPT="..."`
+- 安装时若存在，会把 `~/.qoder-cn/AGENTS.md` 与 `/wangxuanxu/.qoder-cn/AGENTS.md` 互相同步
+- 自定义：`export QODERCLICN_APPEND_SYSTEM_PROMPT="..."`（或 `QODERCLICN_ZH_PROMPT`）
 
-详见 [codex_humanize_usage_zh.md](codex_humanize_usage_zh.md)。
+详见 [codex_humanize_usage_zh.md](codex_humanize_usage_zh.md)、[RESEARCH-TASTE.md](RESEARCH-TASTE.md)。
 
 ---
 

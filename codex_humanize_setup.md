@@ -34,6 +34,24 @@ command -v qoderclicn
 command -v codex
 ```
 
+## 当前部署基线（2026-08-26）
+
+| 安装位置 | 当前版本 | 更新命令 |
+|----------|----------|----------|
+| root：`/root/node/node-v22/bin/codex` | `0.149.1` | `npm install -g @openai/codex@0.149.1` |
+| 个人 PVC：`/wangxuanxu/node/node-v22/bin/codex` | `0.149.1` | `npm install -g --prefix /wangxuanxu/node/node-v22 @openai/codex@0.149.1` |
+
+当前交互式 shell 的 PATH 优先命中 root 安装。Humanize 与 Humanize24 均通过 PATH
+调用 `codex`，不固定 CLI 版本；更新前应分别运行两套 `humanize24 doctor`，确认
+`hooks`、`qoderclicn`、Stop hook 与代理检查通过。
+
+2026-08-26 更新前的可执行回滚备份位于：
+
+```text
+/wangxuanxu/codex-backups/20260826-pre-0.149.1/root-codex-0.147.0
+/wangxuanxu/codex-backups/20260826-pre-0.149.1/personal-codex-0.142.3
+```
+
 ---
 
 ## 二、安装插件 marketplace
@@ -81,7 +99,7 @@ bash ~/tricks-for-cluster/setup_qoderclicn_zh.sh
 
 ---
 
-## 四、Codex 0.142.3 兼容性修正
+## 四、Codex 0.142.3 时代的兼容性修正
 
 Humanize 安装脚本与插件缓存中的 hooks 配置含 **`description` 字段**（Claude Code 格式），Codex 0.142.x **只接受** `{ "hooks": { ... } }`，否则会报警且 **Stop hook 不生效**。
 
@@ -166,6 +184,25 @@ humanize-rlcr docs/plan.md
 
 ## 七、升级与维护
 
+### Codex CLI
+
+升级前先检查是否有活动 RLCR；暂停状态适合更新。固定版本更新并验证：
+
+```bash
+npm install -g @openai/codex@0.149.1
+npm install -g --prefix /wangxuanxu/node/node-v22 @openai/codex@0.149.1
+
+/root/node/node-v22/bin/codex --version
+/wangxuanxu/node/node-v22/bin/codex --version
+PATH="/root/node/node-v22/bin:$PATH" humanize24 doctor --project <root>
+PATH="/wangxuanxu/node/node-v22/bin:$PATH" humanize24 doctor --project <root>
+```
+
+root 安装属于系统侧内容，更新后须提醒保存开发机镜像；个人 PVC 安装与回滚备份
+不依赖系统镜像。恢复旧版时优先用 npm 安装明确旧版本；网络不可用时再从上述备份恢复。
+
+### Humanize 插件
+
 ```bash
 openai_off
 codex plugin marketplace upgrade humanize-codex-qoder
@@ -200,4 +237,3 @@ bash ~/tricks-for-cluster/fix_humanize_codex_hooks.sh
 Claude 时代 Humanize 在退出前会要求 spawn **Opus** 做脱敏方法论分析。当前 **Codex + qoderclicn** 运行时通常无 Opus，会导致无意义的失败与回退。
 
 本机技能已改为：使用**当前会话可用的 Codex 模型**完成该阶段；计划测验 / 合规检查也不再硬编码 `opus`/`sonnet`。不需要该阶段时加 `--privacy`。细节见 [codex_humanize_kubebrain_incident_log_2026-08.md](codex_humanize_kubebrain_incident_log_2026-08.md)。
-
